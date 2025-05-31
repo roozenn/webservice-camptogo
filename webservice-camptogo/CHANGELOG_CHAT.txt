@@ -1,0 +1,82 @@
+# CHANGELOG CHAT
+
+## Struktur Project
+- Project dipecah menjadi beberapa file: main.py, db.py, models.py, auth.py, requirements.txt, README.md
+- Menggunakan SQLite (SQLAlchemy) untuk database
+- Menggunakan JWT untuk autentikasi
+- Menggunakan passlib untuk hash password
+- Menggunakan python-jose untuk encode/decode JWT
+- Menambahkan security scheme HTTP Bearer agar Swagger UI bisa testing endpoint dengan token
+
+## File dan Perubahan
+
+### main.py
+- Entry point FastAPI
+- Inisialisasi database (Base.metadata.create_all)
+- Include router dari auth.py
+
+### db.py
+- Koneksi dan inisialisasi database SQLite dengan SQLAlchemy
+- SessionLocal dan Base
+
+### models.py
+- Model User (id, full_name, email, hashed_password, profile_picture)
+
+### auth.py
+- Endpoint: /auth/register, /auth/login, /auth/refresh, /auth/logout
+- Register: simpan user ke database, hash password
+- Login: verifikasi password, generate JWT
+- Refresh: verifikasi JWT, generate JWT baru
+- Logout: dummy (hanya return sukses, tidak blacklist token)
+- Semua endpoint pakai response model Pydantic
+- Endpoint refresh dan logout sekarang pakai HTTPBearer (Swagger UI bisa authorize)
+
+### requirements.txt
+- fastapi
+- uvicorn
+- pydantic
+- sqlalchemy
+- passlib[bcrypt]
+- python-jose
+
+### README.md
+- Petunjuk instalasi dan penggunaan
+
+## Catatan
+- Semua endpoint bisa dicoba dari Swagger UI (http://127.0.0.1:8000/docs)
+- Untuk endpoint yang butuh token, gunakan tombol Authorize di Swagger UI
+- Token JWT hanya valid jika user masih ada di database dan belum expired
+- Jika ingin menambah fitur baru, cukup tambah file baru dan include di main.py
+
+## Perubahan Sesi Chat Terkini
+- Menambahkan file `home.py` untuk endpoint Beranda.
+- Menambahkan file `products.py` untuk endpoint Produk.
+- Menambahkan model SQLAlchemy baru (`Banner`, `Category`, `Product`, `ProductImage`, `ProductReview`) di `models.py`.
+- Menambahkan script `seed_data.py` untuk mengisi data awal ke database.
+- Menambahkan script `clear_data.py` untuk menghapus data dari tabel database.
+- Mengubah endpoint di `home.py` agar mengambil data dari database.
+- Mengubah endpoint di `products.py` agar mengambil data dari database.
+- Menambahkan konfigurasi `from_attributes=True` pada model Pydantic yang relevan untuk kompatibilitas Pydantic v2. 
+
+## Log Perubahan Sesi Chat Terbaru (30 Mei 2025)
+- **Perbaikan besar pada endpoint favorites:**
+  - Error 401 "Could not validate credentials" ternyata disebabkan oleh field `sub` pada JWT yang bertipe integer, padahal python-jose mengharuskan string.
+  - Solusi: Semua pembuatan token JWT diubah menjadi `{"sub": str(user.id)}` baik pada login maupun refresh.
+  - Fungsi `get_current_user` tetap meng-cast `sub` ke integer sebelum query ke database.
+  - Setelah perbaikan, endpoint favorites bisa diakses dengan token hasil login/refresh baru.
+  - Ditambahkan log print di fungsi `get_current_user` dan endpoint favorites untuk debugging.
+
+- **Penjelasan penggunaan endpoint search:**
+  - Endpoint `/search`:
+    - Parameter: `q` (kata kunci, wajib), `category_id` (opsional), `page` (opsional), `limit` (opsional)
+    - Fungsi: mencari produk berdasarkan nama, bisa difilter kategori, dan mendukung pagination.
+    - Contoh: `/search?q=matras&limit=10`
+  - Endpoint `/search/suggestions`:
+    - Parameter: `q` (kata kunci, wajib)
+    - Fungsi: memberikan saran nama produk (autocomplete) berdasarkan kata kunci.
+    - Contoh: `/search/suggestions?q=ten`
+  - Sudah dijelaskan juga contoh cURL dan response dari kedua endpoint tersebut.
+
+- **Catatan:**
+  - Jika error validasi JWT muncul, pastikan field `sub` pada JWT adalah string, waktu server sinkron, dan user masih ada di database.
+  - Semua solusi dan penjelasan sudah dicatat sebelum memulai chat baru.
