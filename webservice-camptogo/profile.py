@@ -6,7 +6,7 @@ from models import User
 from auth import get_db, get_current_user, verify_password, get_password_hash
 from pydantic import BaseModel, EmailStr
 import shutil # For file upload
-import os # For file path
+import os # For file path anjay
 
 router = APIRouter(prefix="/profile", tags=["User Profile"])
 
