@@ -74,12 +74,23 @@ def get_cart_items(user: User, db: Session):
         deposit_subtotal = product.deposit_amount * item.quantity
         total_rental += subtotal
         total_deposit += deposit_subtotal
+        # Ambil gambar primary jika ada, jika tidak ada ambil gambar pertama
+        primary_image = None
+        if product.images:
+            for img in product.images:
+                if getattr(img, 'is_primary', False):
+                    primary_image = img.image_url
+                    break
+            if not primary_image:
+                primary_image = product.images[0].image_url
+        else:
+            primary_image = ""
         result.append(CartItem(
             id=item.id,
             product=CartProductItem(
                 id=product.id,
                 name=product.name,
-                image_url=product.images[0].image_url if product.images else "",
+                image_url=primary_image,
                 price_per_day=product.price_per_day,
                 deposit_amount=product.deposit_amount
             ),
