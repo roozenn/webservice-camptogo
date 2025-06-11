@@ -1,5 +1,6 @@
 from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
 from auth import router as auth_router
 from db import Base, engine
 import models
@@ -15,6 +16,16 @@ from reviews import router as reviews_router
 from profile import router as profile_router
 
 app = FastAPI(title="CampToGo Webservice")
+
+# Konfigurasi CORS
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],  # Mengizinkan semua origin
+    allow_credentials=True,
+    allow_methods=["*"],  # Mengizinkan semua method
+    allow_headers=["*"],  # Mengizinkan semua header
+    expose_headers=["*"]  # Mengekspos semua header
+)
 
 # Inisialisasi DB (buat tabel jika belum ada)
 Base.metadata.create_all(bind=engine)

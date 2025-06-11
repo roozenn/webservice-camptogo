@@ -11,7 +11,7 @@ from models import User
 
 SECRET_KEY = "supersecretkey"  # Ganti di produksi
 ALGORITHM = "HS256"
-ACCESS_TOKEN_EXPIRE_MINUTES = 30
+ACCESS_TOKEN_EXPIRE_MINUTES = 1440
 
 router = APIRouter(prefix="/auth", tags=["auth"])
 

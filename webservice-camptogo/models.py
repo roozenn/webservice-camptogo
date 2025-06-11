@@ -61,7 +61,7 @@ class ProductReview(Base):
     id = Column(Integer, primary_key=True, index=True)
     product_id = Column(Integer, ForeignKey("products.id"), nullable=False)
     user_id = Column(Integer, ForeignKey("users.id"), nullable=False)
-    order_id = Column(Integer, ForeignKey("orders.id"), nullable=False)
+    order_id = Column(Integer, ForeignKey("orders.id"), nullable=True)
     user_name = Column(String, nullable=False)
     user_profile_picture = Column(String, nullable=False)
     rating = Column(Integer, nullable=False)

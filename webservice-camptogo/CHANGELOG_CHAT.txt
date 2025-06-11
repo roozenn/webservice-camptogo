@@ -1,5 +1,47 @@
 # CHANGELOG CHAT
 
+## Update Besar (Juli 2024)
+
+### Database & Migrasi
+- Migrasi database kini menggunakan Alembic, semua perubahan model dilakukan via migration script.
+- Penambahan field baru pada tabel users (username, gender, date_of_birth, phone_number) dan product_reviews (user_id, order_id).
+- Penyesuaian path database agar tidak terjadi duplikasi file db.
+- Penambahan dan perbaikan script seed_data.py agar mengisi semua tabel dengan data dummy yang saling terhubung.
+
+### Static Files
+- Menambahkan konfigurasi StaticFiles di main.py agar folder uploads dan subfoldernya bisa diakses dari luar (untuk foto profil dan review).
+
+### Endpoint Baru & Perbaikan
+- Endpoint **/reviews** sekarang hanya menerima upload file gambar (bukan URL manual), file disimpan di uploads/review_images, path file disimpan di field images (list string JSON).
+- Endpoint **/profile**: GET/PUT profile, upload foto profil, ganti password. Upload foto profil juga pakai static files.
+- Endpoint **/cart, /addresses, /payment-methods, /orders** sudah lengkap dan saling terhubung.
+- Endpoint **/orders**: validasi kupon, pengurangan biaya, relasi ke address, payment method, dsb.
+- Endpoint **/reviews**: validasi hanya bisa review produk yang pernah diorder, satu kali per produk per order.
+- Semua endpoint upload file (foto profil, review) sudah support multipart/form-data dan validasi tipe file.
+
+### Struktur Project
+- Semua fitur besar dipisah ke file endpoint sendiri (auth, home, products, search, favorites, cart, addresses, payment_methods, orders, reviews, profile).
+- Semua model ORM terpusat di models.py.
+- Script seed_data.py dan clear_data.py untuk pengisian/reset data.
+- Alembic digunakan untuk migrasi database.
+
+### Catatan Penggunaan
+- Token JWT expired default 30 menit, bisa diubah di auth.py.
+- Semua file upload bisa diakses via URL /uploads/...
+- Untuk review produk, user harus sudah pernah order produk tersebut.
+- Untuk upload review, gunakan multipart/form-data, field files bisa multiple file.
+- Semua data dummy seed sudah saling terhubung dan cocok untuk testing seluruh fitur aplikasi.
+
+### Tips Integrasi Flutter
+- Upload file ke endpoint review dan profile pakai MultipartRequest.
+- Token JWT wajib dikirim di header Authorization.
+- Semua data relasi (product_id, order_id, dsb) bisa diambil dari endpoint terkait (list order, list produk, dsb).
+
+---
+
+## Log Perubahan Sebelumnya (Mei-Juni 2024)
+- (Lihat log lama di bawah untuk perubahan sebelum migrasi besar Juli 2024)
+
 ## Struktur Project
 - Project dipecah menjadi beberapa file: main.py, db.py, models.py, auth.py, requirements.txt, README.md
 - Menggunakan SQLite (SQLAlchemy) untuk database
@@ -80,3 +122,23 @@
 - **Catatan:**
   - Jika error validasi JWT muncul, pastikan field `sub` pada JWT adalah string, waktu server sinkron, dan user masih ada di database.
   - Semua solusi dan penjelasan sudah dicatat sebelum memulai chat baru.
+
+## Log Perubahan & Troubleshooting Seed Data (Juli 2024)
+
+- **Penambahan Data Dummy:**
+  - Jumlah user di seed data menjadi 10 user dengan data realistis.
+  - Setiap produk (20 produk) memiliki minimal 2 review dari user berbeda, komentar dan rating bervariasi.
+  - Semua produk sudah memiliki gambar utama (primary) dari link CDN yang diberikan user.
+
+- **Perubahan Model & Migrasi:**
+  - Field `order_id` pada model `ProductReview` diubah menjadi nullable (`nullable=True`) agar seed review dummy tanpa order bisa masuk.
+  - Proses migrasi dengan Alembic pada SQLite gagal karena keterbatasan SQLite (tidak support ALTER COLUMN). Sudah dicoba solusi manual (recreate table), namun tetap error.
+  - Solusi final: database dihapus dan dibuat ulang dari awal tanpa Alembic, lalu seed data dijalankan ulang.
+
+- **Troubleshooting:**
+  - Error NOT NULL constraint pada kolom `order_id` saat insert review dummy berhasil diatasi setelah reset database dan create table ulang dari model.
+  - Error `ModuleNotFoundError: No module named 'passlib'` saat menjalankan seed_data.py diatasi dengan install passlib: `pip install passlib[bcrypt]`.
+
+- **Catatan:**
+  - Untuk perubahan struktur tabel di SQLite, jika migrasi gagal, solusi paling aman adalah drop database dan create table ulang dari model.
+  - Semua seed data sekarang sudah sesuai permintaan: user, produk, gambar, dan review dummy.
