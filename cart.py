@@ -2,7 +2,7 @@ from fastapi import APIRouter, Depends, HTTPException, status, Path
 from sqlalchemy.orm import Session, joinedload
 from typing import List, Optional
 from datetime import datetime, date
-from models import Cart, Product, ProductImage, Coupon, User
+from models import Cart, Product, ProductImage, Coupon, User, Favorite
 from auth import get_db, get_current_user
 from pydantic import BaseModel
 
@@ -15,6 +15,7 @@ class CartProductItem(BaseModel):
     image_url: str
     price_per_day: float
     deposit_amount: float
+    isFavorited: bool
     class Config:
         from_attributes = True
 
@@ -85,6 +86,13 @@ def get_cart_items(user: User, db: Session):
                 primary_image = product.images[0].image_url
         else:
             primary_image = ""
+            
+        # Cek apakah produk ada di favorites
+        is_favorited = db.query(Favorite).filter(
+            Favorite.user_id == user.id,
+            Favorite.product_id == product.id
+        ).first() is not None
+            
         result.append(CartItem(
             id=item.id,
             product=CartProductItem(
@@ -92,7 +100,8 @@ def get_cart_items(user: User, db: Session):
                 name=product.name,
                 image_url=primary_image,
                 price_per_day=product.price_per_day,
-                deposit_amount=product.deposit_amount
+                deposit_amount=product.deposit_amount,
+                isFavorited=is_favorited
             ),
             start_date=item.start_date,
             end_date=item.end_date,

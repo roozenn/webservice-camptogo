@@ -1,5 +1,32 @@
 # CHANGELOG CHAT
 
+## Update Logout dengan Blacklist Token (Juli 2024)
+
+### Perubahan Model & Database
+- Penambahan model `BlacklistedToken` untuk menyimpan token yang sudah di-blacklist
+- Field pada model:
+  - `id`: Integer (primary key)
+  - `token`: String (unique, indexed)
+  - `blacklisted_at`: DateTime (default: utcnow)
+  - `expires_at`: DateTime
+- Perlu migrasi database untuk menambah tabel baru
+
+### Perubahan Endpoint Logout
+- Endpoint `/auth/logout` sekarang menyimpan token ke blacklist
+- Validasi token di `get_current_user` sekarang memeriksa blacklist
+- Penambahan fungsi `cleanup_expired_tokens` untuk membersihkan token expired
+- Token yang sudah di-blacklist tidak bisa digunakan lagi
+
+### Keamanan
+- Token yang sudah logout tidak bisa digunakan lagi
+- Token expired dibersihkan otomatis
+- Validasi token dilakukan di setiap request yang membutuhkan autentikasi
+
+### Catatan Implementasi
+- Client harus menghapus token dari local storage saat logout
+- Semua endpoint yang membutuhkan autentikasi menggunakan `get_current_user`
+- Perlu menjalankan migrasi database untuk menambah tabel blacklist
+
 ## Update Besar (Juli 2024)
 
 ### Database & Migrasi

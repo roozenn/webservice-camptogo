@@ -7,7 +7,7 @@ from passlib.context import CryptContext
 from jose import jwt, JWTError
 from datetime import timedelta, datetime
 from db import SessionLocal
-from models import User
+from models import User, BlacklistedToken
 
 SECRET_KEY = "supersecretkey"  # Ganti di produksi
 ALGORITHM = "HS256"
@@ -48,6 +48,11 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
         headers={"WWW-Authenticate": "Bearer"},
     )
     try:
+        # Cek apakah token ada di blacklist
+        blacklisted = db.query(BlacklistedToken).filter(BlacklistedToken.token == token).first()
+        if blacklisted:
+            raise credentials_exception
+            
         payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
         print("PAYLOAD:", payload)
         user_id = payload.get("sub")
@@ -63,6 +68,12 @@ def get_current_user(credentials: HTTPAuthorizationCredentials = Depends(securit
         print("User not found in DB")
         raise credentials_exception
     return user
+
+def cleanup_expired_tokens(db: Session):
+    """Membersihkan token yang sudah expired dari blacklist"""
+    now = datetime.utcnow()
+    db.query(BlacklistedToken).filter(BlacklistedToken.expires_at < now).delete()
+    db.commit()
 
 # Pydantic schemas
 class RegisterRequest(BaseModel):
@@ -167,7 +178,27 @@ def refresh(credentials: HTTPAuthorizationCredentials = Depends(security), db: S
     return RefreshResponse(access_token=new_token, expires_in=expires_in)
 
 @router.post("/logout", response_model=LogoutResponse, dependencies=[Depends(security)])
-def logout(credentials: HTTPAuthorizationCredentials = Depends(security)):
-    # Logout di JWT biasanya hanya di client (hapus token di client)
-    # Untuk blacklist token, perlu implementasi tambahan (opsional)
-    return LogoutResponse(success=True, message="Logout berhasil") 
+def logout(credentials: HTTPAuthorizationCredentials = Depends(security), db: Session = Depends(get_db)):
+    token = credentials.credentials
+    try:
+        # Decode token untuk mendapatkan waktu expired
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        expires_at = datetime.fromtimestamp(payload.get("exp"))
+        
+        # Tambahkan token ke blacklist
+        blacklisted_token = BlacklistedToken(
+            token=token,
+            expires_at=expires_at
+        )
+        db.add(blacklisted_token)
+        db.commit()
+        
+        # Bersihkan token yang sudah expired
+        cleanup_expired_tokens(db)
+        
+        return LogoutResponse(success=True, message="Logout berhasil")
+    except JWTError:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Token tidak valid"
+        ) 

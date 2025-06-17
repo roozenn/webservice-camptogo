@@ -7,7 +7,8 @@ from sqlalchemy import desc, asc, func
 import json
 
 from db import SessionLocal
-from models import Product, Category, ProductImage, ProductReview
+from models import Product, Category, ProductImage, ProductReview, Favorite, User
+from auth import get_current_user
 
 router = APIRouter(prefix="/products", tags=["Products"])
 
@@ -116,7 +117,15 @@ def get_db():
         db.close()
 
 # Helper function to map ORM Product to ProductItem Pydantic model
-def map_product_to_product_item(product: Product) -> ProductItem:
+def map_product_to_product_item(product: Product, user: Optional[User] = None) -> ProductItem:
+    # Cek status favorit jika user ada
+    is_favorited = False
+    if user:
+        is_favorited = db.query(Favorite).filter(
+            Favorite.user_id == user.id,
+            Favorite.product_id == product.id
+        ).first() is not None
+
     return ProductItem(
         id=product.id,
         name=product.name,
@@ -125,14 +134,15 @@ def map_product_to_product_item(product: Product) -> ProductItem:
         discount_percentage=product.discount_percentage,
         rating=product.rating,
         review_count=product.review_count,
-        image_url=product.images[0].image_url if product.images else "", # Ambil gambar utama jika ada
-        is_favorited=False # Placeholder, butuh relasi user
+        image_url=product.images[0].image_url if product.images else "",
+        is_favorited=is_favorited
     )
 
 # Endpoint: GET /products
 @router.get("", response_model=ProductListResponse)
 def get_products(
     db: Session = Depends(get_db),
+    user: Optional[User] = Depends(get_current_user),
     category_id: Optional[int] = Query(None),
     search: Optional[str] = Query(None),
     min_price: Optional[float] = Query(None),
@@ -169,7 +179,7 @@ def get_products(
     offset = (page - 1) * limit
     products = query.offset(offset).limit(limit).all()
 
-    product_items = [map_product_to_product_item(p) for p in products]
+    product_items = [map_product_to_product_item(p, user) for p in products]
 
     pagination = Pagination(
         current_page=page,
@@ -183,7 +193,11 @@ def get_products(
 
 # Endpoint: GET /products/{product_id}
 @router.get("/{product_id}", response_model=ProductDetailResponse)
-def get_product_detail(product_id: int = Path(..., ge=1), db: Session = Depends(get_db)):
+def get_product_detail(
+    product_id: int = Path(..., ge=1),
+    db: Session = Depends(get_db),
+    user: Optional[User] = Depends(get_current_user)
+):
     product = db.query(Product).options(
         joinedload(Product.category),
         joinedload(Product.images)
@@ -191,6 +205,14 @@ def get_product_detail(product_id: int = Path(..., ge=1), db: Session = Depends(
 
     if not product:
         raise HTTPException(status_code=status.HTTP_404_NOT_FOUND, detail="Product not found")
+
+    # Cek status favorit
+    is_favorited = False
+    if user:
+        is_favorited = db.query(Favorite).filter(
+            Favorite.user_id == user.id,
+            Favorite.product_id == product.id
+        ).first() is not None
 
     data = ProductDetailData(
         id=product.id,
@@ -205,7 +227,7 @@ def get_product_detail(product_id: int = Path(..., ge=1), db: Session = Depends(
         stock_quantity=product.stock_quantity,
         category=CategoryShort.from_orm(product.category) if product.category else None,
         images=[ProductImageItem.from_orm(img) for img in product.images],
-        is_favorited=False # Placeholder
+        is_favorited=is_favorited
     )
 
     return {"success": True, "data": data}
@@ -276,7 +298,8 @@ def get_product_reviews(
 def get_similar_products(
     product_id: int = Path(..., ge=1),
     limit: int = Query(10, ge=1, le=20),
-    db: Session = Depends(get_db)
+    db: Session = Depends(get_db),
+    user: Optional[User] = Depends(get_current_user)
 ):
     # Find the category of the current product
     product = db.query(Product).filter(Product.id == product_id).first()
@@ -294,6 +317,6 @@ def get_similar_products(
         .all()
     )
 
-    similar_product_items = [map_product_to_product_item(p) for p in similar_products]
+    similar_products = [map_product_to_product_item(p, user) for p in similar_products]
 
-    return {"success": True, "data": similar_product_items} 
+    return {"success": True, "data": similar_products} 
